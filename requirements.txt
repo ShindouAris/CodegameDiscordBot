@@ -1,0 +1,6 @@
+disnake
+aiohttp
+colorama
+python-dotenv
+psutil
+humanize
