@@ -1,6 +1,6 @@
 import aiohttp
 import random
-from .error import InvaidFile, NoHostAvailable
+from core.error import InvaidFile, NoHostAvailable
 
 class Node:
     def __init__(self):
@@ -18,7 +18,10 @@ class Node:
         if f"{hostname}:{port}" in self.resolve_host:
             return
         async with aiohttp.ClientSession() as session:
-            resp = await session.get(f"{hostname}:{port}/version")
+            try:
+                resp = await session.get(f"{hostname}:{port}/version")
+            except aiohttp.ClientConnectorError:
+                return False
             if resp.ok:
                 self.resolve_host.append(f"{hostname}:{port}")
                 return {"version": await resp.text()}
@@ -47,7 +50,8 @@ class Node:
                 _response = {
                     "id": response['id'],
                     "status": response['status'],
-                    "message": response['message']
+                    "message": response['message'],
+                    "code_running_time": response.get('running_time', None)
                 }
                 return _response
 

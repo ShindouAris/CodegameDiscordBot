@@ -11,6 +11,8 @@ class ProblemHandler:
         self.easy = []
         self.medium = []
         self.hard = []
+        self.test = []
+        self.index: dict[str, str] = {}
         self.load_problems()
 
     @staticmethod
@@ -18,7 +20,8 @@ class ProblemHandler:
         whitespace_pattern = compile(r'[^\S\r\n]', UNICODE)
         return whitespace_pattern.sub(" ", text)
 
-    def __load__(self, problem, difficultly: str):
+    def __load__(self, problem, difficultly: str, index_name):
+        self.index[index_name] = problem
         match difficultly:
             case "Easy":
                 self.easy.append(problem)
@@ -36,19 +39,19 @@ class ProblemHandler:
                 for problem_name in os.listdir("./client/problems/" + dir):
                     if len(os.listdir("./client/problems/" + dir + "/" + problem_name)) == 0:
                         continue
-                    self.__load__("./client/problems/" + dir + "/" + problem_name, "Easy")
+                    self.__load__("./client/problems/" + dir + "/" + problem_name, "Easy", problem_name)
                     count += 1
             elif dir == "Medium":
                 for problem_name in os.listdir("./client/problems/" + dir):
                     if len(os.listdir("./client/problems/" + dir + "/" + problem_name)) == 0:
                         continue
-                    self.__load__("./client/problems/" + dir + "/" + problem_name, "Medium")
+                    self.__load__("./client/problems/" + dir + "/" + problem_name, "Medium", problem_name)
                     count += 1
             if dir == "Hard":
                 for problem_name in os.listdir("./client/problems/" + dir):
                     if len(os.listdir("./client/problems/" + dir + "/" + problem_name)) == 0:
                         continue
-                    self.__load__("./client/problems/" + dir + "/" + problem_name, "Hard")
+                    self.__load__("./client/problems/" + dir + "/" + problem_name, "Hard", problem_name)
                     count += 1
 
         logger.info(f"Đã tải {count} vấn đề")
@@ -77,6 +80,12 @@ class ProblemHandler:
                 return choice(self.hard)
             case _:
                 return None
+
+    # def search_problem(self, problem_name):
+    #     for problem in self.index:
+    #         if problem_name in problem:
+    #             return problem
+    #     return None
 
 
 # debug

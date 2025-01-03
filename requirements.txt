@@ -4,3 +4,4 @@ colorama
 python-dotenv
 psutil
 humanize
+motor[srv]
