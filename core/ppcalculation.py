@@ -41,7 +41,7 @@ def ranking_calculation(status: str, pp: int = 0, max_pp: int = 0, star_rating: 
     Calculate ranking based on performance points, maximum performance points, and other factors.
 
     Args:
-        status (str): The status of the submission (ACCEPTED, WA, TLE, RE, CE).
+        status (str): The status of the submission (ACCEPTED, WRONG_ANSWER, TIME_LIMIT_EXCEEDED, MEMORY_LIMIT_EXCEEDED, RUNTIME_ERROR, INTERNAL_ERROR, COMPILATION_ERROR).
         pp (int): The performance points of the user.
         max_pp (int): The maximum performance points possible for the level.
         star_rating (int): The difficulty rating of the level (1-10).
@@ -50,6 +50,9 @@ def ranking_calculation(status: str, pp: int = 0, max_pp: int = 0, star_rating: 
     Returns:
         str: Calculated ranking (S, A, B, C, D, F).
     """
+
+    if status not in ["ACCEPTED", "WRONG_ANSWER", "TIME_LIMIT_EXCEEDED", "MEMORY_LIMIT_EXCEEDED", "RUNTIME_ERROR", "INTERNAL_ERROR", "COMPILATION_ERROR"]:
+        return "INVALID STATUS CODE"
 
     if status != "ACCEPTED":
         return "F"
@@ -61,17 +64,15 @@ def ranking_calculation(status: str, pp: int = 0, max_pp: int = 0, star_rating: 
     performance = pp / max_pp
 
     if performance == 1:
-        rank = "SS"
+        rank = "SS+" if star_rating >= 9 else "SS"
     elif performance > 0.9:
-        rank = "S"
+        rank = "S+" if star_rating >= 9 else "S"
     elif 0.8 <= performance < 0.9:
         rank = "A"
     elif 0.7 <= performance < 0.8:
         rank = "B"
     elif 0.6 <= performance < 0.7:
         rank = "C"
-    elif 0.5 <= performance < 0.6:
-        rank = "D"
     else:
         rank = "D"
 
@@ -82,15 +83,32 @@ def ranking_calculation(status: str, pp: int = 0, max_pp: int = 0, star_rating: 
         rank = chr(min(ord(rank) + 1, ord("D")))
     return rank
 
+def challenge_pp_calculation(ppdata: list, challange_count: int) -> int:
+    """
+    Calculate the total performance points for a user in a challange.
+
+    Args:
+        ppdata (list): A list of performance points for each level.
+        challange_count (int): The number of levels in the challange.
+
+    Returns:
+        int: Total performance points for the challange.
+    """
+
+    return round(sum(ppdata) / challange_count)
+
 # DEBUG
 if __name__ == '__main__':
     status = "ACCEPTED"
-    star_rating = 8
+    star_rating = 10
     testcase_count = 4
-    time_taken = 512
-    wrong = 1
+    time_taken = 189
+    wrong = 4
+    list_pp = [200, 200, 200, 200, 200, 200, 123, 4, 9, 0, 24]
     pp = calculate_pp(star_rating, testcase_count, time_taken, wrong)
     maxpp = calculate_pp(star_rating, testcase_count, 0, 0)
     rank = ranking_calculation(status, pp, maxpp, star_rating, time_taken)
+    all_pp = challenge_pp_calculation(list_pp, len(list_pp))
+    print(f"Total PP: {all_pp}")
     print(f"PP: {pp} / {maxpp} | Rating: {star_rating} | Time: {time_taken} | Wrong: {wrong} | Rank: {rank} | SUBMISSION: {'Ranked' if status == 'ACCEPTED' else 'Not Ranked'}")
 
