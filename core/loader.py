@@ -63,8 +63,11 @@ class ProblemHandler:
         return config
 
     def get_problem_description(self, path):
-        with open(f"{path}/problem.txt", "r") as f:
-            return self.__replace_unicode_whitespace__(f.read())
+        try:
+            with open(f"{path}/problem.txt", "r") as f:
+                return self.__replace_unicode_whitespace__(f.read())
+        except FileNotFoundError:
+            return f"{path}/0.png"
 
     def get_random_problem(self):
         _random = [choice(self.easy), choice(self.medium), choice(self.hard)]

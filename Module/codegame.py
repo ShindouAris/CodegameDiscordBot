@@ -3,6 +3,7 @@ from asyncio import sleep
 import disnake
 from disnake.ext import commands
 
+from core.error import NoHostAvailable
 from database.database import get_current_level
 from utils.ClientUser import ClientUser
 from utils.cache import LRUCache
@@ -35,7 +36,12 @@ def embed_builder(problem_name, problem_desc, difficulty, tag, star, testcase):
             > Star: **⭐ {star}**
             > Testcase: **{testcase}**
             """
-    txt += problem_desc
+    if isinstance(problem_desc, str):
+        txt += problem_desc
+    elif isinstance(problem_desc, disnake.File):
+        embed.set_image(file=problem_desc)
+    else:
+        txt += "Có 1 vân đề đã xảy ra khi tải mô tả vấn đề"
     embed.set_footer(text="Bài làm của bạn sẽ hết hạn sau 10 phút")
     embed.description = txt
     return embed
@@ -74,12 +80,14 @@ class UserScore:
     def __init__(self, user_id, pp, level, exp, client):
         self.user_id = user_id
         self.pp = pp
+        self.max_pp = 0
         self.level = level
         self.exp = exp
         self.client: ClientUser = client
 
     def calculation(self, data, level_rating, testcase, wrong_submission):
         pp = calculate_pp(level_rating, testcase, int(data['code_running_time']), wrong_submission)
+        self.max_pp = calculate_pp(level_rating, testcase, 0, 0)
         self.pp = pp
         self.exp += 10
         self.level = get_current_level(self.exp)
@@ -89,7 +97,10 @@ class UserScore:
         await self.client.codegame_database.update_user(self.user_id, self.pp, self.exp)
 
 class UserSession:
-    def __init__(self, qid: int, rating: int, testcases: int, title: str, problem_name: str, msgID: int, score: UserScore):
+    def __init__(self, qid: int, rating: int,
+                    testcases: int, title: str, problem_name: str,
+                    msgID: int, score: UserScore, is_challange=False,
+                    challangeSession = None):
         self.qid = qid
         self.rating = rating
         self.testcases = testcases
@@ -98,6 +109,24 @@ class UserSession:
         self.message_id = msgID
         self.score: UserScore = score
         self.wrong = 0
+        self.is_challange = is_challange
+        self.challange: ChallangeSession = challangeSession
+
+class ChallangeSession:
+    def __init__(self, client: ClientUser, difficulty, number):
+        self.client = client
+        self.difficulty = difficulty
+        self.problem_left = number
+        self.done_problems = []
+
+    def gen_problems(self):
+        while True:
+            problem = self.client.codegame_problem.get_problem_by_difficulty(self.difficulty)
+            if problem in self.done_problems:
+                continue
+            self.problem_left -= 1
+            self.done_problems.append(problem)
+            return problem
 
 class SessionCache(LRUCache):
     def __init__(self):
@@ -121,6 +150,7 @@ class CodeGame(commands.Cog):
         self.bot: ClientUser = bot
         self.session: SessionCache = SessionCache()
 
+    @commands.cooldown(1, 10, commands.BucketType.user)
     @commands.slash_command(name="submit", description="Submit your code", options=[disnake.Option(name="file",
                                                                                                     description="Your source code file",
                                                                                                     type=disnake.OptionType.attachment, required=True),
@@ -147,7 +177,10 @@ class CodeGame(commands.Cog):
         await sleep(3)
         embed = render_task(TaskStatus.done, TaskStatus.running, session.problem_title, language)
         await inter.edit_original_response(embed=embed)
-        resp = await self.bot.codegame_node.submit(str(inter.author.id), session.problem_name, language, file.url)
+        try:
+            resp = await self.bot.codegame_node.submit(str(inter.author.id), session.problem_name, language, file.url)
+        except NoHostAvailable:
+            return await inter.edit_original_response("Không có node chấm nào khả dụng")
         await inter.edit_original_response(embed=render_score(resp['id'], resp['status'], resp['message'], session.problem_title))
 
         if resp['status'] != "ACCEPTED":
@@ -157,12 +190,15 @@ class CodeGame(commands.Cog):
         try: await qMsg.delete()
         except Exception: pass
         pp = session.score.calculation(resp, session.rating, session.testcases, session.wrong)
-        embed = disnake.Embed(title="Chúc mừng, bài làm đã được chấp thuận", color=0x2F3136)
-        embed.add_field(name="PP", value=pp)
-        embed.add_field(name="exp", value=session.score.exp)
-        await inter.send(embed=embed)
-        await session.score.sync_db()
-        self.session.remove_session(inter.author.id)
+        if not session.is_challange:
+            embed = disnake.Embed(title="Chúc mừng, bài làm đã được chấp thuận", color=0x2F3136)
+            embed.add_field(name="PP", value=pp)
+            embed.add_field(name="exp", value=session.score.exp)
+            await inter.send(embed=embed)
+            await session.score.sync_db()
+            self.session.remove_session(inter.author.id)
+        else:
+            ... # TODO: Challange Mode 🔥
 
     @commands.cooldown(1, 20, commands.BucketType.user)
     @commands.slash_command(name="get_random_problem", description="Get a random problem")
@@ -195,6 +231,8 @@ class CodeGame(commands.Cog):
         problem = self.bot.codegame_problem.get_problem_by_difficulty(difficulty)
         problem_config = self.bot.codegame_problem.get_problem_config(problem)
         problem_desc = self.bot.codegame_problem.get_problem_description(problem)
+        if problem_desc.endswith(".png"):
+            problem_desc = disnake.File(problem_desc)
         name, title, difficulty, tag, star, testcase = getch_config(problem_config)
         embed = embed_builder(title, problem_desc, difficulty, tag, star, testcase)
         db = self.bot.codegame_database.cache.get_user(inter.author.id)
