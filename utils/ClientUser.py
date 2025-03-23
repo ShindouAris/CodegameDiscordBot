@@ -42,6 +42,7 @@ class ClientUser(commands.AutoShardedBot):
 
     async def close(self) -> None:
         await self.codegame_database.close()
+        await self.codegame_node.close_connection()
         await super().close()
 
     def load_modules(self):
